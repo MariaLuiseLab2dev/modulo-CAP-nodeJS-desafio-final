@@ -44,4 +44,5 @@ entity ReservationRules : cuid {
     startTimeAllowed : Time;
     endTimeAllowed   : Time;
     allowedHolidays  : String;
+    maxParticipants   : Integer;
 }
