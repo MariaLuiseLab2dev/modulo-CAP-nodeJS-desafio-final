@@ -10,7 +10,7 @@ service ReservationsService {
      * - Consulta de reservas (READ)
      *
      * Regras:
-     * - Apenas usuários existentes (associação real a Users) podem criar reservas
+     * - Apenas usuários existentes podem criar reservas
      * - Usuários com cargo "Administrador" podem criar reservas ignorando todas as regras
      * - Usuários com cargo "Organizador" devem respeitar:
      *   - Dias da semana e dias do mês permitidos

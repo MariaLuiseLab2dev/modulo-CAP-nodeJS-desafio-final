@@ -1,0 +1,33 @@
+### CREATE RESERVATION
+POST http://localhost:4004/reservations/Reservations
+Content-Type: application/json
+
+{
+    "date": "2026-01-02",
+    "startTime": "09:30:00",
+    "endTime": "11:00:00",
+    "participants": 10,
+    "subject": "Reunião de planejamento Frontend",
+    "confidential": false,
+    "user_ID": "a412d6cb-35fb-4a0c-95d4-736031bb4ddd"
+}
+
+### READ RESERVATIONS
+GET http://localhost:4004/reservations/Reservations
+
+### ATUALIZAR UMA RESERVATION
+PATCH http://localhost:4004/reservations/Reservations/d52c14c2-fd8a-441e-859c-0cc86ca8ed37
+Content-Type: application/json
+
+{
+    "date": "2026-01-02",
+    "startTime": "10:30:00",
+    "endTime": "12:00:00",
+    "participants": 10,
+    "subject": "Reunião de planejamento Frontend",
+    "confidential": false,
+    "user_ID": "759134d1-2057-4f00-8108-62518c1ecef5"
+}
+
+### DELETAR UMA RESERVA
+DELETE http://localhost:4004/reservations/Reservations/(ID=d52c14c2-fd8a-441e-859c-0cc86ca8ed37)&&(user_ID=_

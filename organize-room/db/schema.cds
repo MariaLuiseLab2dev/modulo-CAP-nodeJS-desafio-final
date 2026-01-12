@@ -1,8 +1,10 @@
+
+
 using { cuid } from '@sap/cds/common';
 
-type Position : String enum {
-    Organizer;
-    Administrator;
+type organize.Position : String enum {
+    Organizador;
+    Administrador;
 };
 
 /**
@@ -15,7 +17,7 @@ type Position : String enum {
 entity Users : cuid {
     name        : String;
     email       : String;
-    position    : Position;
+    position    : organize.Position;
 };
 
 /**
@@ -30,8 +32,8 @@ entity Users : cuid {
  */
 entity Reservations : cuid {
     date            : Date;
-    startTime      : Time;
-    endTime        : Time;
+    startTime       : Time;
+    endTime         : Time;
     participants    : Integer;
     subject         : String;
     confidential    : Boolean;

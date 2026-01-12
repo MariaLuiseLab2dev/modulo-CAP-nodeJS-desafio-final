@@ -1,0 +1,22 @@
+### CREATE USER 
+POST http://localhost:4004/users/Users 
+Content-Type: application/json 
+
+{ 
+    "name"      : "Maria Luise Britto",
+    "email"     : "maria.luise@lab2dev.com",
+    "position"  : "Organizador" 
+}
+
+### READ USERS
+GET http://localhost:4004/users/Users
+
+### UPDATE USER 
+PATCH http://localhost:4004/users/Users/cd0f929d-bfc8-443e-84b5-38e5de337567
+Content-Type: application/json 
+
+{ 
+    "name"      : "Willyan Bastos",
+    "email"     : "willyanbastos@lab2dev.com",
+    "position"  : "Organizador" 
+}
