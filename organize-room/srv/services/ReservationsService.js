@@ -21,7 +21,6 @@ class ReservationsService {
             return await this.insertReservation(reqdata);
         }
 
-
         if (user.position === Position.Organizador) {
             // segue as regras
             let validReservation = await this.validateReservation(reqdata);
@@ -31,9 +30,9 @@ class ReservationsService {
 
 
     // validar os dados da reserva
-    async validateReservation(data) {
+    async validateReservation(data, id = null) {
         // Conflito de reservas
-        await this.validateConflict(data);
+        await this.validateConflict({ ...data, ID: id });
 
         // Dias permitidos
         await this.validateDays(data);
@@ -55,7 +54,7 @@ class ReservationsService {
 
         // converte horário para minutos
         const toMinutes = (time) => {
-            const [h, m] = time.split(":").map(Number); // separa horas e minutos e transforma de String p/ numero
+            const [h, m] = time.split(":").map(Number);
             return h * 60 + m;
         };
 
@@ -72,7 +71,7 @@ class ReservationsService {
         for (const r of reservations) {
             // ignora a própria reserva no caso de update 
             if (data.ID && r.ID === data.ID) continue;
-            
+
             const existingStart = toMinutes(r.startTime);
             const existingEnd = toMinutes(r.endTime);
 
@@ -164,10 +163,16 @@ class ReservationsService {
         return newReservation;
     }
 
+    async readAllReservations(filters) { 
+        const { Reservations } = await getEntities();  
+        return SELECT.from(Reservations); 
+    } 
 
-    // UPDATE
-    // TO-DO: VALIDAR SE TEM OUTRO
-    //
+    async readReservationById(id) { 
+        const { Reservations } = await getEntities(); 
+        return await SELECT.one.from(Reservations).where({ ID: id }); 
+    }
+
     async updateReservation(data) {
         const { Reservations, Users } = await getEntities();
 
@@ -182,11 +187,7 @@ class ReservationsService {
             throw new Error("Somente o criador pode editar esta reserva");
         }
 
-        await this.validateConflict({ ...data, ID: data.ID }); 
-        await this.validateDays(data); 
-        await this.validateHours(data); 
-        await this.validateParticipants(data); 
-        await this.validateHolidays(data);
+       await this.validateReservation(data, data.ID);
 
         await UPDATE(Reservations).set({
             date: data.date,
@@ -200,8 +201,13 @@ class ReservationsService {
         return { message: "Reserva atualizada com sucesso" };
     }
 
-    
-
+    async deleteReservation(id) {
+        const { Reservations } = await getEntities();
+        const reservation = await SELECT.one.from(Reservations).where({ ID: id });
+        if (!reservation) throw new Error("Reserva não encontrada");
+        await DELETE.from(Reservations).where({ ID: id });
+        return { message: "Reserva deletada com sucesso" };
+    }
 }
 
 

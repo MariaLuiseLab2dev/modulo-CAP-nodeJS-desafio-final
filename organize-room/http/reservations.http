@@ -4,8 +4,8 @@ Content-Type: application/json
 
 {
     "date": "2026-01-02",
-    "startTime": "09:30:00",
-    "endTime": "11:00:00",
+    "startTime": "11:00:00",
+    "endTime": "12:00:00",
     "participants": 10,
     "subject": "Reunião de planejamento Frontend",
     "confidential": false,
@@ -15,19 +15,53 @@ Content-Type: application/json
 ### READ RESERVATIONS
 GET http://localhost:4004/reservations/Reservations
 
+### READ UMA RESERVATION
+GET http://localhost:4004/reservations/Reservations/11bb94ba-35f6-4738-9ecf-9aee249e17d0
+
 ### ATUALIZAR UMA RESERVATION
-PATCH http://localhost:4004/reservations/Reservations/d52c14c2-fd8a-441e-859c-0cc86ca8ed37
+PATCH http://localhost:4004/reservations/Reservations/11bb94ba-35f6-4738-9ecf-9aee249e17d0
 Content-Type: application/json
 
 {
     "date": "2026-01-02",
-    "startTime": "10:30:00",
-    "endTime": "12:00:00",
+    "startTime": "14:00:00",
+    "endTime": "14:30:00",
     "participants": 10,
     "subject": "Reunião de planejamento Frontend",
     "confidential": false,
-    "user_ID": "759134d1-2057-4f00-8108-62518c1ecef5"
+    "user_ID": "a412d6cb-35fb-4a0c-95d4-736031bb4ddd"
 }
 
 ### DELETAR UMA RESERVA
-DELETE http://localhost:4004/reservations/Reservations/(ID=d52c14c2-fd8a-441e-859c-0cc86ca8ed37)&&(user_ID=_
+DELETE http://localhost:4004/reservations/Reservations/11bb94ba-35f6-4738-9ecf-9aee249e17d0
+
+
+### 
+POST http://localhost:4004/reservations/ReservationRules
+Content-Type: application/json
+
+{
+    "allowedWeekDays": ["Monday","Tuesday","Wednesday","Thursday","Friday"],
+    "allowedMonthDays": [1,2,3,4,5,6,7,8,9,10],
+    "startTimeAllowed": "08:00:00",
+    "endTimeAllowed": "18:00:00",
+    "allowedHolidays": "false",
+    "maxParticipants": 80
+}
+
+###
+GET http://localhost:4004/reservations/ReservationRules
+
+###
+GET http://localhost:4004/reservations/ReservationRules(<ID>)
+
+###
+PATCH http://localhost:4004/reservations/ReservationRules(<ID>)
+Content-Type: application/json
+
+{
+  "maxParticipants": 100
+}
+
+### 
+DELETE http://localhost:4004/reservations/ReservationRules(<ID>)

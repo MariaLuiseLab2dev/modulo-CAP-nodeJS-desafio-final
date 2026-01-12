@@ -1,16 +1,16 @@
 const cds = require('@sap/cds');
 
-let db; 
+let _db; 
 
-async function getDb() {
-    if (!db) {
-        db = await cds.connect.to('db');
+async function _getDb() {
+    if (!_db) {
+        _db = await cds.connect.to('db');
     }
-    return db;
+    return _db;
 }
 
 async function getEntities() {
-    const db = await getDb();
+    const db = await _getDb();
     return {
         Users: db.entities['UsersService.Users'],
         Reservations: db.entities['ReservationsService.Reservations'],
