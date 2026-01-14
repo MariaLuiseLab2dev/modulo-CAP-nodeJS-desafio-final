@@ -36,12 +36,12 @@ class ReservationRulesService {
         if (!rule) throw new Error("Regra não encontrada");
 
         await UPDATE(ReservationRules).set({
-            allowedWeekDays: data.allowedWeekDays,
-            allowedMonthDays: data.allowedMonthDays,
-            startTimeAllowed: data.startTimeAllowed,
-            endTimeAllowed: data.endTimeAllowed,
-            allowedHolidays: data.allowedHolidays,
-            maxParticipants: data.maxParticipants
+            allowedWeekDays: data.allowedWeekDays ?? rule.allowedWeekDays,
+            allowedMonthDays: data.allowedMonthDays ?? rule.allowedMonthDays,
+            startTimeAllowed: data.startTimeAllowed ?? rule.startTimeAllowed,
+            endTimeAllowed: data.endTimeAllowed ?? rule.endTimeAllowed,
+            allowedHolidays: data.allowedHolidays ?? rule.allowedHolidays,
+            maxParticipants: data.maxParticipants ?? rule.maxParticipants
         }).where({ ID: data.ID });
 
         return { message: "Regra atualizada com sucesso" };

@@ -3,9 +3,9 @@ POST http://localhost:4004/reservations/Reservations
 Content-Type: application/json
 
 {
-    "date": "2026-01-02",
-    "startTime": "11:00:00",
-    "endTime": "12:00:00",
+    "date": "2026-02-10",
+    "startTime": "17:00:00",
+    "endTime": "18:00:00",
     "participants": 10,
     "subject": "Reunião de planejamento Frontend",
     "confidential": false,
@@ -16,52 +16,54 @@ Content-Type: application/json
 GET http://localhost:4004/reservations/Reservations
 
 ### READ UMA RESERVATION
-GET http://localhost:4004/reservations/Reservations/11bb94ba-35f6-4738-9ecf-9aee249e17d0
+GET http://localhost:4004/reservations/Reservations/1746cebb-e190-422e-80f1-04076057f50d
 
 ### ATUALIZAR UMA RESERVATION
-PATCH http://localhost:4004/reservations/Reservations/11bb94ba-35f6-4738-9ecf-9aee249e17d0
+PATCH http://localhost:4004/reservations/Reservations/f6458d66-df25-459a-8527-211b9e50cda4
 Content-Type: application/json
 
 {
     "date": "2026-01-02",
-    "startTime": "14:00:00",
-    "endTime": "14:30:00",
-    "participants": 10,
-    "subject": "Reunião de planejamento Frontend",
-    "confidential": false,
-    "user_ID": "a412d6cb-35fb-4a0c-95d4-736031bb4ddd"
+    "startTime": "11:00:00",
+    "endTime": "12:00:00"
 }
 
 ### DELETAR UMA RESERVA
-DELETE http://localhost:4004/reservations/Reservations/11bb94ba-35f6-4738-9ecf-9aee249e17d0
+DELETE http://localhost:4004/reservations/Reservations/7f8ac566-23fc-476e-bfc9-861abaef6786
 
 
-### 
+
+
+### CREATE RESERVATION RULE
 POST http://localhost:4004/reservations/ReservationRules
 Content-Type: application/json
 
 {
-    "allowedWeekDays": ["Monday","Tuesday","Wednesday","Thursday","Friday"],
+    "allowedWeekDays": ["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira"],
     "allowedMonthDays": [1,2,3,4,5,6,7,8,9,10],
     "startTimeAllowed": "08:00:00",
     "endTimeAllowed": "18:00:00",
-    "allowedHolidays": "false",
+    "allowedHolidays": false, 
     "maxParticipants": 80
 }
 
-###
+### READ RESERVATION RULES
 GET http://localhost:4004/reservations/ReservationRules
 
 ###
-GET http://localhost:4004/reservations/ReservationRules(<ID>)
+GET http://localhost:4004/reservations/ReservationRules/b9c20edc-33cd-42a4-8693-016612432565
 
 ###
-PATCH http://localhost:4004/reservations/ReservationRules(<ID>)
+PATCH http://localhost:4004/reservations/ReservationRules/b9c20edc-33cd-42a4-8693-016612432565
 Content-Type: application/json
 
 {
-  "maxParticipants": 100
+    "allowedMonthDays": [1,2,3,4,5,6,7,8,9,10],
+    "startTimeAllowed": "08:00:00",
+    "endTimeAllowed": "18:00:00",
+    "allowedHolidays": true,
+    "maxParticipants": 80
 }
 
 ### 
-DELETE http://localhost:4004/reservations/ReservationRules(<ID>)
+DELETE http://localhost:4004/reservations/ReservationRules/d6441793-b2f0-4b10-84d0-595c42d6e0b4

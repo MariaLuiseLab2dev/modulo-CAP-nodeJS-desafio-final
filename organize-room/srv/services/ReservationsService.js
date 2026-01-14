@@ -1,41 +1,76 @@
 const cds = require("@sap/cds");
 const { getEntities } = require("../utils/DbUtil");
 const { executeHttpRequest } = require('@sap-cloud-sdk/http-client');
+const nodemailer = require("nodemailer");
+
 
 class ReservationsService {
+    _transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: {
+            user: "brittomarialuise@gmail.com",
+            pass: "vonv widh enqd tehb"
+        }
+    });
+
+    _roleStrategies = {
+        Administrador: async (reqdata) => {
+            return await this.insertReservation(reqdata);
+        },
+ 
+        Organizador: async (reqdata) => {
+            let validReservation = await this.validateReservation(reqdata);
+            return await this.insertReservation(validReservation);
+        }
+    };
+
+    async sendCanceledReservationToEmail(reservation, cancelledBy) {
+    try {
+            await this._transporter.sendMail({
+            from: '"Organize Room" <seuemail@gmail.com>',
+            to: reservation.userEmail,
+            subject: "Reunião cancelada",
+            text: `A reunião "${reservation.subject}" marcada para ${reservation.date} foi cancelada por ${cancelledBy}.`,
+            html: `<p>A reunião <b>${reservation.subject}</b> marcada para <b>${reservation.date}</b> foi cancelada por <b>${cancelledBy}</b>.</p>`
+        });
+        console.log("E-mail de cancelamento enviado com sucesso!");
+    } catch (error) {
+        console.error("Erro ao enviar e-mail:", error);
+        }
+    }
+
     async createReservation(data) {
 
         const { Users } = await getEntities();
         const reqdata = data.req.body;
 
         const user = await SELECT.one.from(Users).where({ ID: reqdata.user_ID });
-
         if (!user) throw new Error("Usuário não existe");
 
-        const { Position } = require("#cds-models/organize");
-
-        console.log(user.position);
-
-        if (user.position === Position.Administrador) {
-            // ignora regras 
-            return await this.insertReservation(reqdata);
-        }
-
-        if (user.position === Position.Organizador) {
-            // segue as regras
-            let validReservation = await this.validateReservation(reqdata);
-            return await this.insertReservation(validReservation);
-        }
+        const strategy = this._roleStrategies[user.position];
+        if(!strategy) throw new Error("Cargo não suportado");
+        
+        return await strategy(reqdata); 
     }
 
 
     // validar os dados da reserva
     async validateReservation(data, id = null) {
+        const { ReservationRules } = await getEntities();
+        const rules = await SELECT.one.from(ReservationRules);
+        if (!rules) throw new Error("Nenhuma regra de reserva configurada");
+
+
         // Conflito de reservas
         await this.validateConflict({ ...data, ID: id });
 
-        // Dias permitidos
-        await this.validateDays(data);
+        // Dias da semana permitidos
+        await this.validateDaysWeek(data);
+
+        // Dias do mês permitidos
+        await this.validateDaysMonth(data);
 
         //  Horários permitidos
         await this.validateHours(data);
@@ -49,72 +84,92 @@ class ReservationsService {
         return data; // passou em todas as validações
     }
 
+    _toMinutes(time) {
+        const [h, m] = time.split(":").map(Number);
+        return h * 60 + m;
+    }
+
     async validateConflict(data) {
         const { Reservations } = await getEntities();
 
-        // converte horário para minutos
-        const toMinutes = (time) => {
-            const [h, m] = time.split(":").map(Number);
-            return h * 60 + m;
-        };
+        const conflicts = await SELECT.from(Reservations)
+            .where({ date : data.date })
+            // o tempo de inicio for menor que o tempo de fim
+            .and(`startTime < '${data.endTime}'`)
+            // o tempo de fim for maior que o tempo de inicio
+            .and(`endTime > '${data.startTime}'`)
+            // se tiver data.ID ele tira o próprio, senão passa nada
+            .and(data.ID ? { ID: { '!=': data.ID } } : {}
+        );
 
-        // horários da nova reserva
-        const newStart = toMinutes(data.startTime);
-        const newEnd = toMinutes(data.endTime);
-
-        console.log(newStart);
-        console.log(newEnd);
-
-        // busca todas as reservas do mesmo dia
-        const reservations = await SELECT.from(Reservations).where({ date: data.date });
-
-        for (const r of reservations) {
-            // ignora a própria reserva no caso de update 
-            if (data.ID && r.ID === data.ID) continue;
-
-            const existingStart = toMinutes(r.startTime);
-            const existingEnd = toMinutes(r.endTime);
-
-            // verifica sobreposição
-            // Se uma reserva começa antes da outra terminar e termina depois da outra começar
-            if (newStart < existingEnd && newEnd > existingStart) {
-                throw new Error("Já existe uma reserva nesse horário");
-            }
+        if (conflicts.length > 0) { 
+            throw new Error("Já existe uma reserva nesse horário"); 
         }
     }
 
 
-    async validateDays(data) {
-        const day = new Date(data.date).getDay();
-        if (day === 0 || day === 6) {
-            throw new Error("Reservas só são permitidas de segunda a sexta-feira");
+    async validateDaysWeek(data) {
+        const { ReservationRules } = await getEntities();
+        const rules = await SELECT.one.from(ReservationRules);
+        if (!rules) throw new Error("Nenhuma regra configurada");
+
+        // pega o dia da semana da reserva 
+        let dayOfWeek = new Date(data.date)
+            .toLocaleDateString("pt-BR", { weekday: "long" }); 
+
+        dayOfWeek = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+
+        console.log(dayOfWeek);
+
+        if (!rules.allowedWeekDays.includes(dayOfWeek)) { 
+            throw new Error(`Dia da semana ${dayOfWeek} não permitido para reservas`); 
         }
     }
 
     async validateHours(data) {
-        const MIN_START = 0;             // 00:00
-        const MAX_END = 23 * 60 + 30;  // 23:30
+        const { ReservationRules } = await getEntities(); 
+        const rules = await SELECT.one.from(ReservationRules); 
+        if (!rules) throw new Error("Nenhuma regra configurada");
 
-        const toMinutes = (time) => {
-            const [h, m] = time.split(":").map(Number);
-            return h * 60 + m;
-        };
+        const start = this._toMinutes(data.startTime);
+        const end = this._toMinutes(data.endTime);
 
-        const start = toMinutes(data.startTime);
-        const end = toMinutes(data.endTime);
+        const minStart =  this._toMinutes(rules.startTimeAllowed); 
+        const maxEnd =  this._toMinutes(rules.endTimeAllowed); 
 
-        if (start < MIN_START || end > MAX_END) {
-            throw new Error("Horário fora do intervalo permitido (00:00 - 23:30)");
+        if (start < minStart || end > maxEnd) {
+            throw new Error(`Horário fora do intervalo permitido (${rules.startTimeAllowed} - ${rules.endTimeAllowed})`);
         }
+
         if (start >= end) {
             throw new Error("Horário inicial deve ser menor que o horário final");
         }
     }
 
+    // VALIDAR OS DIAS DO MÊS
+    async validateDaysMonth(data) {
+        const { ReservationRules } = await getEntities(); 
+        const rules = await SELECT.one.from(ReservationRules); 
+        if (!rules) throw new Error("Nenhuma regra configurada");
+
+        const dayOfMonth = new Date(data.date).getDate();
+        console.log(dayOfMonth);
+
+        // verifica se está na lista permitida 
+        if (!rules.allowedMonthDays.includes(dayOfMonth)) { 
+            throw new Error(`Dia ${dayOfMonth} não permitido para reservas`); 
+        }
+
+    }
+
+
     async validateParticipants(data) {
-        const MAX_PARTICIPANTS = 80;
-        if (data.participants > MAX_PARTICIPANTS) {
-            throw new Error(`Número de participantes excede o limite de ${MAX_PARTICIPANTS}`);
+        const { ReservationRules } = await getEntities(); 
+        const rules = await SELECT.one.from(ReservationRules); 
+        if (!rules) throw new Error("Nenhuma regra configurada");
+
+        if (data.participants > rules.maxParticipants) {
+            throw new Error(`Número de participantes excede o limite de ${rules.maxParticipants}`);
         }
     }
 
@@ -127,18 +182,23 @@ class ReservationsService {
     }
 
     async validateHolidays(data) {
-        const ano = new Date(data.date).getFullYear();
-        console.log(ano);
+        const { ReservationRules } = await getEntities(); 
+        const rules = await SELECT.one.from(ReservationRules); 
+        if (!rules) throw new Error("Nenhuma regra configurada");
+        
+        const ano = new Date(data.date).getFullYear(); 
+        if (ano < 2026) { 
+            throw new Error("Escolha uma data a partir do ano de 2026"); 
+        } 
+        
+        const allowedHolidays = rules.allowedHolidays === true || rules.allowedHolidays === "true";
 
-        if (ano < 2026) {
-            throw new Error("Escolha uma data a partir do ano de 2026");
-        }
-
-        const feriados = await this.getFeriados(ano);
-        const feriadoDatas = feriados.map(f => f.date);
-
-        if (feriadoDatas.includes(data.date)) {
-            throw new Error("Não é possível reservar em feriados nacionais");
+        if (!allowedHolidays) { 
+            const feriados = await this.getFeriados(ano); 
+            const feriadoDatas = feriados.map(f => f.date); 
+            if (feriadoDatas.includes(data.date)) { 
+                throw new Error("Não é possível reservar em feriados nacionais"); 
+            } 
         }
     }
 
@@ -179,33 +239,41 @@ class ReservationsService {
         const reservation = await SELECT.one.from(Reservations).where({ ID: data.ID });
         if (!reservation) throw new Error("Reserva não encontrada");
 
-        const user = await SELECT.one.from(Users).where({ ID: data.user_ID });
+        // usa o user_ID da reserva se não vier no payload 
+        const userId = data.user_ID || reservation.user_ID;
+
+        const user = await SELECT.one.from(Users).where({ ID: userId });
         if (!user) throw new Error("Usuário não existe");
 
+        
+
         // só criador pode editar
-        if (reservation.user_ID !== data.user_ID) {
+        if (reservation.user_ID !== userId) {
             throw new Error("Somente o criador pode editar esta reserva");
         }
 
        await this.validateReservation(data, data.ID);
 
-        await UPDATE(Reservations).set({
-            date: data.date,
-            startTime: data.startTime,
-            endTime: data.endTime,
-            participants: data.participants,
-            subject: data.subject,
-            confidential: data.confidential
-        }).where({ ID: data.ID });
+       const { ID, user_ID, ...updateData } = data;
 
-        return { message: "Reserva atualizada com sucesso" };
+        await UPDATE(Reservations).set({ ...updateData }).where({ ID: data.ID });
+
+        return await SELECT.one.from(Reservations).where({ ID: data.ID });
     }
 
     async deleteReservation(id) {
-        const { Reservations } = await getEntities();
+        const { Reservations, Users } = await getEntities();
         const reservation = await SELECT.one.from(Reservations).where({ ID: id });
         if (!reservation) throw new Error("Reserva não encontrada");
+
         await DELETE.from(Reservations).where({ ID: id });
+
+        const organizer = await SELECT.one.from(Users).where({ ID: reservation.user_ID });
+
+        console.log("\nORGANIZADOR: " +organizer.name);
+
+        await this.sendCanceledReservationToEmail({ ...reservation, userEmail: organizer.email }, organizer.name);
+
         return { message: "Reserva deletada com sucesso" };
     }
 }
