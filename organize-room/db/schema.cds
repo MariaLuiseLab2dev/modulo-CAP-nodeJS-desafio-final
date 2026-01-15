@@ -41,7 +41,7 @@ entity Reservations : cuid {
 }
 
 entity ReservationRules : cuid {
-    allowedWeekDays  : array of String; // dias da semana
+    allowedWeekDays  : array of Integer; // dias da semana
     allowedMonthDays : array of Integer; // dias do mês
     startTimeAllowed : Time;
     endTimeAllowed   : Time;

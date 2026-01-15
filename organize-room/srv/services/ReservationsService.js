@@ -26,14 +26,40 @@ class ReservationsService {
         }
     };
 
-    async sendCanceledReservationToEmail(reservation, cancelledBy) {
-    try {
+    async _reservationRulesConnect() {
+        const { ReservationRules } = await getEntities();
+        const rules = await SELECT.one.from(ReservationRules);
+        if (!rules) throw new Error("Nenhuma regra configurada");
+        return rules;
+    }
+
+    async _formatarDataCompleta(dateStr, startTime, endTime) { 
+        const date = new Date(dateStr);
+        
+        // formato dd/MM/yyyy 
+        const dataFormatada = new Intl.DateTimeFormat("pt-BR", 
+            { 
+                day: "2-digit", 
+                month: "2-digit", 
+                year: "numeric" 
+            }).format(date); 
+            
+            // dia da semana 
+            const diaSemana = new Intl.DateTimeFormat("pt-BR", 
+                { weekday: "long" }).format(date); 
+        
+            return `${dataFormatada} (${diaSemana}) das ${startTime} às ${endTime}`; 
+        }
+
+    async sendCanceledReservationToEmail(reservation, cancelledBy) { // criar uma função pra formatar a data
+        let dataCompleta = await this._formatarDataCompleta(reservation.date, reservation.startTime, reservation.endTime);
+        try {
             await this._transporter.sendMail({
-            from: '"Organize Room" <seuemail@gmail.com>',
+            from: '"Organize Room" <brittomarialuise@gmail.com>',
             to: reservation.userEmail,
             subject: "Reunião cancelada",
-            text: `A reunião "${reservation.subject}" marcada para ${reservation.date} foi cancelada por ${cancelledBy}.`,
-            html: `<p>A reunião <b>${reservation.subject}</b> marcada para <b>${reservation.date}</b> foi cancelada por <b>${cancelledBy}</b>.</p>`
+            text: `A reunião "${reservation.subject}" marcada para ${dataCompleta} foi cancelada por ${cancelledBy.name} (${cancelledBy.email}).`,
+            html: `<p>A reunião <b>${reservation.subject}</b> marcada para <b>${dataCompleta}</b> foi cancelada por <b>${cancelledBy.name}</b> (${cancelledBy.email}).</p>`
         });
         console.log("E-mail de cancelamento enviado com sucesso!");
     } catch (error) {
@@ -58,10 +84,6 @@ class ReservationsService {
 
     // validar os dados da reserva
     async validateReservation(data, id = null) {
-        const { ReservationRules } = await getEntities();
-        const rules = await SELECT.one.from(ReservationRules);
-        if (!rules) throw new Error("Nenhuma regra de reserva configurada");
-
 
         // Conflito de reservas
         await this.validateConflict({ ...data, ID: id });
@@ -109,27 +131,31 @@ class ReservationsService {
 
 
     async validateDaysWeek(data) {
-        const { ReservationRules } = await getEntities();
-        const rules = await SELECT.one.from(ReservationRules);
-        if (!rules) throw new Error("Nenhuma regra configurada");
+        const rules = this._reservationRulesConnect();
 
         // pega o dia da semana da reserva 
-        let dayOfWeek = new Date(data.date)
-            .toLocaleDateString("pt-BR", { weekday: "long" }); 
+        let dayOfWeekNum = new Date(data.date).getDay();
 
-        dayOfWeek = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
-
-        console.log(dayOfWeek);
-
-        if (!rules.allowedWeekDays.includes(dayOfWeek)) { 
-            throw new Error(`Dia da semana ${dayOfWeek} não permitido para reservas`); 
+        const dayNames = [ 
+            "Domingo", 
+            "Segunda-feira", 
+            "Terça-feira", 
+            "Quarta-feira", 
+            "Quinta-feira", 
+            "Sexta-feira", 
+            "Sábado" 
+        ]; 
+        
+        const dayOfWeekName = dayNames[dayOfWeekNum]; 
+        console.log(`\nDia da semana: ${dayOfWeekNum} (${dayOfWeekName})`);
+        
+        if (!rules.allowedWeekDays.includes(dayOfWeekNum)) { 
+            throw new Error(`Dia da semana ${dayOfWeekName} não permitido para reservas`); 
         }
     }
 
     async validateHours(data) {
-        const { ReservationRules } = await getEntities(); 
-        const rules = await SELECT.one.from(ReservationRules); 
-        if (!rules) throw new Error("Nenhuma regra configurada");
+       const rules = await this._reservationRulesConnect();
 
         const start = this._toMinutes(data.startTime);
         const end = this._toMinutes(data.endTime);
@@ -148,9 +174,7 @@ class ReservationsService {
 
     // VALIDAR OS DIAS DO MÊS
     async validateDaysMonth(data) {
-        const { ReservationRules } = await getEntities(); 
-        const rules = await SELECT.one.from(ReservationRules); 
-        if (!rules) throw new Error("Nenhuma regra configurada");
+        const rules = await this._reservationRulesConnect();
 
         const dayOfMonth = new Date(data.date).getDate();
         console.log(dayOfMonth);
@@ -164,9 +188,7 @@ class ReservationsService {
 
 
     async validateParticipants(data) {
-        const { ReservationRules } = await getEntities(); 
-        const rules = await SELECT.one.from(ReservationRules); 
-        if (!rules) throw new Error("Nenhuma regra configurada");
+       const rules = await this._reservationRulesConnect();
 
         if (data.participants > rules.maxParticipants) {
             throw new Error(`Número de participantes excede o limite de ${rules.maxParticipants}`);
@@ -182,9 +204,7 @@ class ReservationsService {
     }
 
     async validateHolidays(data) {
-        const { ReservationRules } = await getEntities(); 
-        const rules = await SELECT.one.from(ReservationRules); 
-        if (!rules) throw new Error("Nenhuma regra configurada");
+        const rules = await this._reservationRulesConnect();
         
         const ano = new Date(data.date).getFullYear(); 
         if (ano < 2026) { 
@@ -223,7 +243,7 @@ class ReservationsService {
         return newReservation;
     }
 
-    async readAllReservations(filters) { 
+    async readAllReservations() { 
         const { Reservations } = await getEntities();  
         return SELECT.from(Reservations); 
     } 
@@ -246,7 +266,6 @@ class ReservationsService {
         if (!user) throw new Error("Usuário não existe");
 
         
-
         // só criador pode editar
         if (reservation.user_ID !== userId) {
             throw new Error("Somente o criador pode editar esta reserva");
@@ -270,9 +289,9 @@ class ReservationsService {
 
         const organizer = await SELECT.one.from(Users).where({ ID: reservation.user_ID });
 
-        console.log("\nORGANIZADOR: " +organizer.name);
+        // console.log("\nORGANIZADOR: " +organizer.name);
 
-        await this.sendCanceledReservationToEmail({ ...reservation, userEmail: organizer.email }, organizer.name);
+        await this.sendCanceledReservationToEmail({ ...reservation, userEmail: organizer.email }, { name: organizer.name, email: organizer.email});
 
         return { message: "Reserva deletada com sucesso" };
     }
